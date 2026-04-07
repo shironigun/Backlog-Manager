@@ -120,12 +120,12 @@ export default function App(){
           )}
 
           {ROLES.map(function(role){
-            var members = devs.filter(function(d){return (d.role||"Developer")===role});
+            const members = devs.filter(function(d){return (d.role||"Developer")===role});
             if(members.length===0 && devs.length>0) return null;
             if(members.length===0) return null;
-            var roleIcon = role==="Developer" ? "💻" : role==="QA" ? "🧪" : "🎨";
-            var roleGrad = role==="Developer" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : role==="QA" ? "linear-gradient(135deg,#06b6d4,#0ea5e9)" : "linear-gradient(135deg,#ec4899,#f97316)";
-            var roleLabel = role==="QA" ? "QA Members" : role==="Designer" ? "Designers" : "Developers";
+            const roleIcon = role==="Developer" ? "💻" : role==="QA" ? "🧪" : "🎨";
+            const roleGrad = role==="Developer" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : role==="QA" ? "linear-gradient(135deg,#06b6d4,#0ea5e9)" : "linear-gradient(135deg,#ec4899,#f97316)";
+            const roleLabel = role==="QA" ? "QA Members" : role==="Designer" ? "Designers" : "Developers";
             return (
               <div key={role} style={{marginBottom:28}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -213,7 +213,7 @@ export default function App(){
         {/* Summary badges */}
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
           {STATUSES.map(function(s){
-            var c = devTickets.filter(function(t){return t.status===s}).length;
+            const c = devTickets.filter(function(t){return t.status===s}).length;
             return <Badge key={s} color={STATUS_COLORS[s]}>{s+": "+c}</Badge>;
           })}
         </div>
@@ -222,8 +222,8 @@ export default function App(){
         {viewMode==="kanban" && (
           <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:20}}>
             {STATUSES.map(function(status){
-              var col = sortByPriority(devTickets.filter(function(t){return t.status===status}));
-              var isOver = dragOver===status;
+              const col = sortByPriority(devTickets.filter(function(t){return t.status===status}));
+              const isOver = dragOver===status;
               return (
                 <div key={status} onDragOver={function(e){e.preventDefault();setDragOver(status)}} onDragLeave={function(){setDragOver(null)}} onDrop={function(e){handleDrop(status,e)}} style={{minWidth:200,maxWidth:240,flex:"1 0 200px",background:isOver?"#1a1a35":"#111122",borderRadius:12,padding:10,border:"1px solid "+(isOver?"#6366f1":"#1e1e2e"),transition:"all .15s"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,paddingBottom:8,borderBottom:"2px solid "+STATUS_COLORS[status]}}>
@@ -245,7 +245,7 @@ export default function App(){
         {viewMode==="list" && (
           <div>
             {STATUSES.map(function(status){
-              var col = sortByPriority(devTickets.filter(function(t){return t.status===status}));
+              const col = sortByPriority(devTickets.filter(function(t){return t.status===status}));
               if(col.length===0) return null;
               return (
                 <div key={status} style={{marginBottom:20}}>
@@ -256,7 +256,7 @@ export default function App(){
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}>
                     {col.map(function(t){
-                      var title = t.title.length>60 ? t.title.slice(0,60)+"…" : t.title;
+                      const title = t.title.length>60 ? t.title.slice(0,60)+"…" : t.title;
                       return (
                         <div key={t.id} onClick={function(){setViewingTicket(t)}} style={{background:"#151525",borderRadius:10,padding:"10px 14px",border:"1px solid #2a2a3e",display:"flex",alignItems:"center",gap:10,cursor:"pointer",transition:"all .15s"}} onMouseEnter={function(e){e.currentTarget.style.borderColor="#6366f155"}} onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e"}}>
                           <span style={{fontSize:14}}>{TYPE_ICONS[t.type]}</span>
