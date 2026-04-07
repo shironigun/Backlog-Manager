@@ -1,161 +1,47 @@
-import { useState } from "react";
-
-var STATUSES = ["New","Active","Blocked","Discussion Required","Resolved","Tested","Waiting for Release","Closed"];
-var TYPES = ["Story","Feature","Task","Epic","Defect"];
-var PRIORITIES = ["High","Medium","Low"];
-var STATUS_COLORS = {"New":"#6366f1","Active":"#3b82f6","Blocked":"#ef4444","Discussion Required":"#f59e0b","Resolved":"#10b981","Tested":"#06b6d4","Waiting for Release":"#8b5cf6","Closed":"#6b7280"};
-var PRIO_COLORS = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"};
-var TYPE_ICONS = {"Story":"📖","Feature":"✨","Task":"✅","Epic":"🎯","Defect":"🐛"};
-
-function uid(){return Math.random().toString(36).slice(2,9)}
-
-function Modal(props){
-  if(!props.open) return null;
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.5)",backdropFilter:"blur(4px)"}} onClick={props.onClose}>
-      <div onClick={function(e){e.stopPropagation()}} style={{background:"#1e1e2e",borderRadius:14,padding:28,width:"95%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",border:"1px solid #333",boxShadow:"0 20px 60px rgba(0,0,0,.5)"}}>
-        {props.children}
-      </div>
-    </div>
-  );
-}
-
-function Badge(props){
-  var bg = props.color + "22";
-  var bdr = "1px solid " + props.color + "44";
-  return (
-    <span style={{background:bg,color:props.color,borderRadius:6,padding:props.small?"1px 6px":"2px 10px",fontSize:props.small?10:11,fontWeight:600,whiteSpace:"nowrap",border:bdr}}>
-      {props.children}
-    </span>
-  );
-}
-
-function InputField(props){
-  return (
-    <div style={{marginBottom:12}}>
-      {props.label && <label style={{display:"block",fontSize:12,fontWeight:600,color:"#94a3b8",marginBottom:4}}>{props.label}</label>}
-      <input type={props.type||"text"} value={props.value} onChange={props.onChange} placeholder={props.placeholder} autoFocus={props.autoFocus} onKeyDown={props.onKeyDown} style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #334155",background:"#0f172a",color:"#e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box"}} />
-    </div>
-  );
-}
-
-function SelectField(props){
-  return (
-    <div style={{marginBottom:12}}>
-      {props.label && <label style={{display:"block",fontSize:12,fontWeight:600,color:"#94a3b8",marginBottom:4}}>{props.label}</label>}
-      <select value={props.value} onChange={function(e){props.onChange(e.target.value)}} style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #334155",background:"#0f172a",color:"#e2e8f0",fontSize:14,outline:"none"}}>
-        {props.options.map(function(o){return <option key={o} value={o}>{o}</option>})}
-      </select>
-    </div>
-  );
-}
-
-function TextAreaField(props){
-  return (
-    <div style={{marginBottom:12}}>
-      {props.label && <label style={{display:"block",fontSize:12,fontWeight:600,color:"#94a3b8",marginBottom:4}}>{props.label}</label>}
-      <textarea value={props.value} onChange={props.onChange} placeholder={props.placeholder} style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #334155",background:"#0f172a",color:"#e2e8f0",fontSize:14,outline:"none",minHeight:70,resize:"vertical",boxSizing:"border-box",fontFamily:"inherit"}} />
-    </div>
-  );
-}
-
-/* ── Ticket Detail Panel (opens when clicking a card) ── */
-function TicketDetail(props){
-  var t = props.ticket;
-  var overdue = t.dueDate && new Date(t.dueDate) < new Date();
-  return (
-    <Modal open={true} onClose={props.onClose}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:16}}>
-        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <span style={{fontSize:20}}>{TYPE_ICONS[t.type]}</span>
-          <Badge color={STATUS_COLORS[t.status]}>{t.status}</Badge>
-          <Badge color={PRIO_COLORS[t.priority]}>{t.priority}</Badge>
-          <Badge color="#64748b">{t.type}</Badge>
-        </div>
-      </div>
-      <h3 style={{margin:"0 0 12px",color:"#e2e8f0",fontSize:18}}>{t.title}</h3>
-
-      <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16,fontSize:12,color:"#94a3b8"}}>
-        {t.sprint && <span>{"Sprint " + t.sprint}</span>}
-        {t.dueDate && <span style={{color:overdue?"#ef4444":"#94a3b8"}}>{"Due: " + t.dueDate}</span>}
-      </div>
-
-      {t.description && (
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",marginBottom:4}}>Description</div>
-          <div style={{fontSize:13,color:"#cbd5e1",lineHeight:1.5,background:"#0f172a",borderRadius:8,padding:12}}>{t.description}</div>
-        </div>
-      )}
-
-      {t.acceptanceCriteria && (
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",marginBottom:4}}>Acceptance Criteria</div>
-          <pre style={{fontSize:13,color:"#cbd5e1",lineHeight:1.5,background:"#0f172a",borderRadius:8,padding:12,whiteSpace:"pre-wrap",margin:0,fontFamily:"inherit"}}>{t.acceptanceCriteria}</pre>
-        </div>
-      )}
-
-      {t.adoLink && (
-        <a href={t.adoLink} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:13,color:"#8b5cf6",textDecoration:"none",background:"#8b5cf622",padding:"6px 14px",borderRadius:8,fontWeight:600}}>
-          {"Open in ADO Board ↗"}
-        </a>
-      )}
-
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20,paddingTop:14,borderTop:"1px solid #2a2a3e"}}>
-        <button onClick={function(){props.onDelete(t.id);props.onClose()}} style={{background:"#ef444422",color:"#ef4444",border:"1px solid #ef444444",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Delete</button>
-        <button onClick={function(){props.onEdit(t)}} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Edit</button>
-      </div>
-    </Modal>
-  );
-}
-
-/* ── Minimal Card (title, priority, type only) ── */
-function TicketCard(props){
-  var t = props.ticket;
-  function onDragStart(e){
-    e.dataTransfer.setData("ticketId", t.id);
-    e.dataTransfer.effectAllowed = "move";
-  }
-  var title = t.title.length > 50 ? t.title.slice(0,50) + "…" : t.title;
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onClick={function(){props.onClick(t)}}
-      style={{background:"#151525",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid #2a2a3e",cursor:"pointer",transition:"all .15s"}}
-      onMouseEnter={function(e){e.currentTarget.style.borderColor="#6366f155";e.currentTarget.style.background="#1a1a30"}}
-      onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e";e.currentTarget.style.background="#151525"}}
-    >
-      <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0",marginBottom:8,lineHeight:1.35}}>{title}</div>
-      <div style={{display:"flex",gap:5,alignItems:"center"}}>
-        <span style={{fontSize:13}}>{TYPE_ICONS[t.type]}</span>
-        <Badge color="#475569" small={true}>{t.type}</Badge>
-        <span style={{flex:1}} />
-        <Badge color={PRIO_COLORS[t.priority]} small={true}>{t.priority}</Badge>
-      </div>
-    </div>
-  );
-}
+import { useState, DragEvent } from "react";
+import { 
+  Developer, 
+  Ticket, 
+  TicketForm, 
+  Status, 
+  Priority, 
+  Role,
+  STATUSES, 
+  TYPES, 
+  PRIORITIES,
+  ROLES,
+  STATUS_COLORS,
+  PRIO_COLORS,
+  TYPE_ICONS
+} from "./components/types";
+import { uid } from "./components/utils";
+import { Modal } from "./components/Modal";
+import { Badge } from "./components/Badge";
+import { InputField } from "./components/InputField";
+import { SelectField } from "./components/SelectField";
+import { TextAreaField } from "./components/TextAreaField";
+import { TicketDetail } from "./components/TicketDetail";
+import { TicketCard } from "./components/TicketCard";
 
 /* ── Main App ── */
 export default function App(){
-  var _s = useState([]); var devs = _s[0]; var setDevs = _s[1];
-  var _t = useState([]); var tickets = _t[0]; var setTickets = _t[1];
-  var _d = useState(null); var selectedDev = _d[0]; var setSelectedDev = _d[1];
-  var _v = useState("kanban"); var viewMode = _v[0]; var setViewMode = _v[1];
-  var _ad = useState(false); var showAddDev = _ad[0]; var setShowAddDev = _ad[1];
-  var _dn = useState(""); var newDevName = _dn[0]; var setNewDevName = _dn[1];
-  var _tm = useState(false); var showTicketModal = _tm[0]; var setShowTicketModal = _tm[1];
-  var _et = useState(null); var editingTicket = _et[0]; var setEditingTicket = _et[1];
-  var _do = useState(null); var dragOver = _do[0]; var setDragOver = _do[1];
-  var _vt = useState(null); var viewingTicket = _vt[0]; var setViewingTicket = _vt[1];
+  const [devs, setDevs] = useState<Developer[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedDev, setSelectedDev] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [showAddDev, setShowAddDev] = useState(false);
+  const [newDevName, setNewDevName] = useState("");
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [dragOver, setDragOver] = useState<Status | null>(null);
+  const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
+  const [newDevRole, setNewDevRole] = useState<Role>("Developer");
 
-  var _nr = useState("Developer"); var newDevRole = _nr[0]; var setNewDevRole = _nr[1];
+  const emptyForm: TicketForm = {title:"",description:"",acceptanceCriteria:"",adoLink:"",type:"Story",status:"New",priority:"Medium",dueDate:"",sprint:""};
+  const [form, setForm] = useState<TicketForm>(emptyForm);
 
-  var emptyForm = {title:"",description:"",acceptanceCriteria:"",adoLink:"",type:"Story",status:"New",priority:"Medium",dueDate:"",sprint:""};
-  var _f = useState(emptyForm); var form = _f[0]; var setForm = _f[1];
-
-  var priorityOrder = {"High":0,"Medium":1,"Low":2};
-  function sortByPriority(arr){
+  const priorityOrder: Record<Priority, number> = {"High":0,"Medium":1,"Low":2};
+  function sortByPriority(arr: Ticket[]): Ticket[]{
     return arr.slice().sort(function(a,b){return (priorityOrder[a.priority]||1)-(priorityOrder[b.priority]||1)});
   }
 
@@ -166,7 +52,7 @@ export default function App(){
     setNewDevRole("Developer");
     setShowAddDev(false);
   }
-  function removeDev(id){
+  function removeDev(id: string){
     if(!confirm("Remove this developer and all their tickets?")) return;
     setDevs(function(p){return p.filter(function(d){return d.id!==id})});
     setTickets(function(p){return p.filter(function(t){return t.devId!==id})});
@@ -177,7 +63,7 @@ export default function App(){
     setForm(emptyForm);
     setShowTicketModal(true);
   }
-  function openEditTicket(t){
+  function openEditTicket(t: Ticket){
     setViewingTicket(null);
     setEditingTicket(t);
     setForm({title:t.title,description:t.description||"",acceptanceCriteria:t.acceptanceCriteria||"",adoLink:t.adoLink||"",type:t.type,status:t.status,priority:t.priority,dueDate:t.dueDate||"",sprint:t.sprint||""});
@@ -191,26 +77,26 @@ export default function App(){
         return t;
       })});
     } else {
-      var newT = Object.assign({id:uid(),devId:selectedDev,createdAt:new Date().toISOString()},form);
+      const newT: Ticket = Object.assign({id:uid(),devId:selectedDev,createdAt:new Date().toISOString()},form) as Ticket;
       setTickets(function(p){return p.concat([newT])});
     }
     setShowTicketModal(false);
   }
-  function deleteTicket(id){
+  function deleteTicket(id: string){
     setTickets(function(p){return p.filter(function(t){return t.id!==id})});
   }
-  function handleDrop(status,e){
+  function handleDrop(status: Status, e: DragEvent<HTMLDivElement>){
     e.preventDefault();
     setDragOver(null);
-    var ticketId = e.dataTransfer.getData("ticketId");
+    const ticketId = e.dataTransfer.getData("ticketId");
     if(ticketId) setTickets(function(p){return p.map(function(t){
       if(t.id===ticketId) return Object.assign({},t,{status:status});
       return t;
     })});
   }
 
-  var dev = devs.find(function(d){return d.id===selectedDev});
-  var devTickets = tickets.filter(function(t){return t.devId===selectedDev});
+  const dev = devs.find(function(d){return d.id===selectedDev});
+  const devTickets = tickets.filter(function(t){return t.devId===selectedDev});
 
   /* ════ DASHBOARD ════ */
   if(!selectedDev){
@@ -229,33 +115,34 @@ export default function App(){
             <div style={{textAlign:"center",padding:60,color:"#475569"}}>
               <div style={{fontSize:48,marginBottom:12}}>{"👥"}</div>
               <div style={{fontSize:16,fontWeight:600}}>No team members yet</div>
-              <div style={{fontSize:13,marginTop:4}}>Add a developer or QA member to start tracking their backlog</div>
+              <div style={{fontSize:13,marginTop:4}}>Add a team member (Developer, QA, or Designer) to start tracking their backlog</div>
             </div>
           )}
 
-          {["Developer","QA"].map(function(role){
+          {ROLES.map(function(role){
             var members = devs.filter(function(d){return (d.role||"Developer")===role});
             if(members.length===0 && devs.length>0) return null;
             if(members.length===0) return null;
-            var roleIcon = role==="Developer" ? "💻" : "🧪";
-            var roleGrad = role==="Developer" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "linear-gradient(135deg,#06b6d4,#0ea5e9)";
+            var roleIcon = role==="Developer" ? "💻" : role==="QA" ? "🧪" : "🎨";
+            var roleGrad = role==="Developer" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : role==="QA" ? "linear-gradient(135deg,#06b6d4,#0ea5e9)" : "linear-gradient(135deg,#ec4899,#f97316)";
+            var roleLabel = role==="QA" ? "QA Members" : role==="Designer" ? "Designers" : "Developers";
             return (
               <div key={role} style={{marginBottom:28}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                   <span style={{fontSize:18}}>{roleIcon}</span>
-                  <h2 style={{margin:0,fontSize:18,fontWeight:700,color:"#e2e8f0"}}>{role==="QA"?"QA Members":"Developers"}</h2>
+                  <h2 style={{margin:0,fontSize:18,fontWeight:700,color:"#e2e8f0"}}>{roleLabel}</h2>
                   <span style={{fontSize:12,color:"#64748b"}}>{"("+members.length+")"}</span>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
                   {members.map(function(d){
-                    var dt = tickets.filter(function(t){return t.devId===d.id});
-                    var counts = {};
+                    const dt = tickets.filter(function(t){return t.devId===d.id});
+                    const counts: Record<Status, number> = {} as Record<Status, number>;
                     STATUSES.forEach(function(s){counts[s]=dt.filter(function(t){return t.status===s}).length});
-                    var active = dt.filter(function(t){return t.status!=="Closed"&&t.status!=="Waiting for Release"}).length;
-                    var blocked = (counts["Blocked"]||0)+(counts["Discussion Required"]||0);
-                    var sub = dt.length+" tickets · "+active+" active"+(blocked>0?" · "+blocked+" blocked":"");
+                    const active = dt.filter(function(t){return t.status!=="Closed"&&t.status!=="Waiting for Release"}).length;
+                    const blocked = (counts["Blocked"]||0)+(counts["Discussion Required"]||0);
+                    const sub = dt.length+" tickets · "+active+" active"+(blocked>0?" · "+blocked+" blocked":"");
                     return (
-                      <div key={d.id} onClick={function(){setSelectedDev(d.id)}} style={{background:"#151525",borderRadius:14,padding:20,border:"1px solid #2a2a3e",cursor:"pointer",transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.borderColor=role==="QA"?"#06b6d4":"#6366f1";e.currentTarget.style.transform="translateY(-2px)"}} onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e";e.currentTarget.style.transform="none"}}>
+                      <div key={d.id} onClick={function(){setSelectedDev(d.id)}} style={{background:"#151525",borderRadius:14,padding:20,border:"1px solid #2a2a3e",cursor:"pointer",transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.borderColor=role==="QA"?"#06b6d4":role==="Designer"?"#ec4899":"#6366f1";e.currentTarget.style.transform="translateY(-2px)"}} onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e";e.currentTarget.style.transform="none"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                           <div style={{display:"flex",alignItems:"center",gap:10}}>
                             <div style={{width:36,height:36,borderRadius:"50%",background:roleGrad,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:16,color:"#fff"}}>{d.name[0].toUpperCase()}</div>
@@ -292,7 +179,7 @@ export default function App(){
         <Modal open={showAddDev} onClose={function(){setShowAddDev(false)}}>
           <h3 style={{margin:"0 0 16px",color:"#e2e8f0"}}>Add Team Member</h3>
           <InputField label="Name" value={newDevName} onChange={function(e){setNewDevName(e.target.value)}} placeholder="e.g. John Smith" autoFocus={true} onKeyDown={function(e){if(e.key==="Enter") addDev()}} />
-          <SelectField label="Role" options={["Developer","QA"]} value={newDevRole} onChange={function(v){setNewDevRole(v)}} />
+          <SelectField label="Role" options={ROLES} value={newDevRole} onChange={function(v){setNewDevRole(v as Role)}} />
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button onClick={function(){setShowAddDev(false)}} style={{background:"#1e293b",color:"#94a3b8",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer"}}>Cancel</button>
             <button onClick={addDev} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontWeight:600,cursor:"pointer"}}>Add</button>

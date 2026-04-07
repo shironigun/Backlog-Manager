@@ -1,6 +1,7 @@
 # Backlog Manager
 
-A modern, intuitive backlog management tool for tracking tickets across team members. Built with React and TypeScript, featuring kanban board and list views.
+A modern, intuitive backlog management tool for tracking tickets across team
+members. Built with React and TypeScript, featuring kanban board and list views.
 
 ![Backlog Manager](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -8,10 +9,12 @@ A modern, intuitive backlog management tool for tracking tickets across team mem
 ## ✨ Features
 
 - 👥 **Team Management** - Add and manage developers and QA members
-- 🎯 **Ticket Tracking** - Create, edit, and track tickets with detailed information
+- 🎯 **Ticket Tracking** - Create, edit, and track tickets with detailed
+  information
 - 📋 **Kanban Board** - Visualize workflow with drag-and-drop kanban columns
 - 📊 **List View** - Alternative list view for quick overview
-- 🎨 **Status Tracking** - Multiple status stages (New, Active, Blocked, Discussion Required, Resolved, Tested, Waiting for Release, Closed)
+- 🎨 **Status Tracking** - Multiple status stages (New, Active, Blocked,
+  Discussion Required, Resolved, Tested, Waiting for Release, Closed)
 - 🏷️ **Type Classification** - Story, Feature, Task, Epic, and Defect types
 - ⚡ **Priority Levels** - High, Medium, and Low priority indicators
 - 📅 **Sprint Planning** - Assign tickets to sprints with due dates
@@ -28,17 +31,20 @@ A modern, intuitive backlog management tool for tracking tickets across team mem
 ### Installation
 
 1. Clone the repository
+
 ```bash
 git clone https://github.com/ahmadmah/backlog-manager.git
 cd backlog-manager
 ```
 
 2. Install dependencies
+
 ```bash
 npm install
 ```
 
 3. Start the development server
+
 ```bash
 npm run dev
 ```
@@ -96,7 +102,8 @@ The built files will be in the `dist` directory.
 
 - **Status Colors**: Each status has a unique color for quick identification
 - **Priority Indicators**: High (Red), Medium (Orange), Low (Green)
-- **Type Icons**: Visual icons for each ticket type (📖 Story, ✨ Feature, ✅ Task, 🎯 Epic, 🐛 Defect)
+- **Type Icons**: Visual icons for each ticket type (📖 Story, ✨ Feature, ✅
+  Task, 🎯 Epic, 🐛 Defect)
 
 ## 🤝 Contributing
 
