@@ -3,23 +3,27 @@
 ## How it Works
 
 ### Automatic Production Deployment
+
 - **Master branch** → Automatically deploys to production
 - URL: https://calm-sand-038387710.6.azurestaticapps.net/
 
 ### Development Workflow
 
 1. **Create a feature branch** for your changes:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make your changes** and commit them:
+
    ```bash
    git add .
    git commit -m "Description of changes"
    ```
 
 3. **Push your feature branch** to GitHub:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -38,6 +42,7 @@
 ## Quick Commands
 
 ### Start new feature:
+
 ```bash
 git checkout master
 git pull
@@ -45,6 +50,7 @@ git checkout -b feature/my-new-feature
 ```
 
 ### Finish and deploy:
+
 ```bash
 git add .
 git commit -m "Add new feature"
@@ -53,6 +59,7 @@ git push origin feature/my-new-feature
 ```
 
 ### Direct push to production (use carefully):
+
 ```bash
 git checkout master
 git add .
@@ -63,6 +70,7 @@ git push
 ## Branch Protection (Recommended)
 
 Consider protecting the master branch:
+
 1. Go to GitHub repo → Settings → Branches
 2. Add rule for `master`
 3. Require pull request reviews before merging

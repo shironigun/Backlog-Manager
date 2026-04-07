@@ -1,4 +1,4 @@
-import { useState, DragEvent } from "react";
+import { useState, useEffect, DragEvent } from "react";
 import { 
   Developer, 
   Ticket, 
@@ -23,10 +23,36 @@ import { TextAreaField } from "./components/TextAreaField";
 import { TicketDetail } from "./components/TicketDetail";
 import { TicketCard } from "./components/TicketCard";
 
+// LocalStorage keys
+const STORAGE_KEYS = {
+  DEVELOPERS: "backlog_manager_developers",
+  TICKETS: "backlog_manager_tickets"
+};
+
+// Load data from localStorage
+function loadFromStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+}
+
+// Save data to localStorage
+function saveToStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+}
+
 /* ── Main App ── */
 export default function App(){
-  const [devs, setDevs] = useState<Developer[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [devs, setDevs] = useState<Developer[]>(() => loadFromStorage(STORAGE_KEYS.DEVELOPERS, []));
+  const [tickets, setTickets] = useState<Ticket[]>(() => loadFromStorage(STORAGE_KEYS.TICKETS, []));
   const [selectedDev, setSelectedDev] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [showAddDev, setShowAddDev] = useState(false);
@@ -39,6 +65,16 @@ export default function App(){
 
   const emptyForm: TicketForm = {title:"",description:"",acceptanceCriteria:"",adoLink:"",type:"Story",status:"New",priority:"Medium",dueDate:"",sprint:""};
   const [form, setForm] = useState<TicketForm>(emptyForm);
+
+  // Save developers to localStorage whenever they change
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVELOPERS, devs);
+  }, [devs]);
+
+  // Save tickets to localStorage whenever they change
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.TICKETS, tickets);
+  }, [tickets]);
 
   const priorityOrder: Record<Priority, number> = {"High":0,"Medium":1,"Low":2};
   function sortByPriority(arr: Ticket[]): Ticket[]{
