@@ -14,7 +14,7 @@ import {
   PRIO_COLORS,
   TYPE_ICONS
 } from "./components/types";
-import { uid } from "./components/utils";
+import { uid, saveToFile, loadFromFile } from "./components/utils";
 import { Modal } from "./components/Modal";
 import { Badge } from "./components/Badge";
 import { InputField } from "./components/InputField";
@@ -62,6 +62,7 @@ export default function App(){
   const [dragOver, setDragOver] = useState<Status | null>(null);
   const [viewingTicket, setViewingTicket] = useState<Ticket | null>(null);
   const [newDevRole, setNewDevRole] = useState<Role>("Developer");
+  const [feedbackMsg, setFeedbackMsg] = useState<{text: string; type: "success" | "error"} | null>(null);
 
   const emptyForm: TicketForm = {title:"",description:"",acceptanceCriteria:"",adoLink:"",type:"Story",status:"New",priority:"Medium",dueDate:"",sprint:""};
   const [form, setForm] = useState<TicketForm>(emptyForm);
@@ -75,6 +76,14 @@ export default function App(){
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.TICKETS, tickets);
   }, [tickets]);
+
+  // Auto-dismiss feedback messages
+  useEffect(() => {
+    if (feedbackMsg) {
+      const timer = setTimeout(() => setFeedbackMsg(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMsg]);
 
   const priorityOrder: Record<Priority, number> = {"High":0,"Medium":1,"Low":2};
   function sortByPriority(arr: Ticket[]): Ticket[]{
@@ -121,6 +130,25 @@ export default function App(){
   function deleteTicket(id: string){
     setTickets(function(p){return p.filter(function(t){return t.id!==id})});
   }
+  async function handleSaveToFile(){
+    const result = await saveToFile(devs, tickets);
+    if(result.success){
+      setFeedbackMsg({text: "Data saved to file successfully!", type: "success"});
+    } else if(result.error && result.error !== "Save cancelled"){
+      setFeedbackMsg({text: "Error saving: " + result.error, type: "error"});
+    }
+  }
+  async function handleLoadFromFile(){
+    if(!confirm("Loading from file will replace all current data. Continue?")) return;
+    const result = await loadFromFile();
+    if(result.success && result.data){
+      setDevs(result.data.developers);
+      setTickets(result.data.tickets);
+      setFeedbackMsg({text: "Data loaded from file successfully!", type: "success"});
+    } else if(result.error && result.error !== "Load cancelled"){
+      setFeedbackMsg({text: "Error loading: " + result.error, type: "error"});
+    }
+  }
   function handleDrop(status: Status, e: DragEvent<HTMLDivElement>){
     e.preventDefault();
     setDragOver(null);
@@ -139,12 +167,21 @@ export default function App(){
     return (
       <div style={{minHeight:"100vh",background:"#0b0b1a",color:"#e2e8f0",fontFamily:"system-ui",padding:20}}>
         <div style={{maxWidth:1200,margin:"0 auto"}}>
+          {feedbackMsg && (
+            <div style={{position:"fixed",top:20,right:20,zIndex:1000,background:feedbackMsg.type==="success"?"#10b981":"#ef4444",color:"#fff",padding:"12px 20px",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.3)",fontSize:14,fontWeight:600,animation:"slideIn 0.3s ease-out"}}>
+              {feedbackMsg.text}
+            </div>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}}>
             <div>
               <h1 style={{margin:0,fontSize:24,fontWeight:700,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Backlog Manager</h1>
               <p style={{margin:"4px 0 0",fontSize:13,color:"#64748b"}}>Track tickets per developer across all statuses</p>
             </div>
-            <button onClick={function(){setShowAddDev(true)}} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:600,cursor:"pointer",fontSize:14}}>+ Add Member</button>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={handleSaveToFile} style={{background:"#1e293b",color:"#94a3b8",border:"1px solid #334155",borderRadius:8,padding:"8px 16px",fontWeight:600,cursor:"pointer",fontSize:13}}>💾 Save to File</button>
+              <button onClick={handleLoadFromFile} style={{background:"#1e293b",color:"#94a3b8",border:"1px solid #334155",borderRadius:8,padding:"8px 16px",fontWeight:600,cursor:"pointer",fontSize:13}}>📂 Load from File</button>
+              <button onClick={function(){setShowAddDev(true)}} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:600,cursor:"pointer",fontSize:14}}>+ Add Member</button>
+            </div>
           </div>
 
           {devs.length===0 && (
