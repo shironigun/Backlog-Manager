@@ -8,6 +8,7 @@ interface InputFieldProps {
   placeholder?: string;
   autoFocus?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }
 
 export function InputField(props: InputFieldProps) {
@@ -33,6 +34,7 @@ export function InputField(props: InputFieldProps) {
         placeholder={props.placeholder} 
         autoFocus={props.autoFocus} 
         onKeyDown={props.onKeyDown} 
+        onPaste={props.onPaste} 
         style={{
           width: "100%",
           padding: "8px 12px",

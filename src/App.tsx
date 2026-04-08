@@ -130,6 +130,19 @@ export default function App(){
   function deleteTicket(id: string){
     setTickets(function(p){return p.filter(function(t){return t.id!==id})});
   }
+  function handleTitlePaste(e: React.ClipboardEvent<HTMLInputElement>){
+    const pastedText = e.clipboardData.getData('text');
+    // Look for Azure DevOps links
+    const adoLinkMatch = pastedText.match(/(https?:\/\/dev\.azure\.com\/[^\s]+)/i);
+    if(adoLinkMatch){
+      e.preventDefault();
+      const extractedLink = adoLinkMatch[1];
+      // Remove the link from the title and clean up extra whitespace
+      const cleanTitle = pastedText.replace(extractedLink, '').replace(/\s+/g, ' ').trim();
+      setForm(Object.assign({}, form, {title: cleanTitle, adoLink: extractedLink}));
+      setFeedbackMsg({text: "ADO link auto-extracted!", type: "success"});
+    }
+  }
   async function handleSaveToFile(){
     const result = await saveToFile(devs, tickets);
     if(result.success){
@@ -361,7 +374,7 @@ export default function App(){
       {/* ── Create / Edit form ── */}
       <Modal open={showTicketModal} onClose={function(){setShowTicketModal(false)}}>
         <h3 style={{margin:"0 0 18px",color:"#e2e8f0"}}>{editingTicket?"Edit Ticket":"New Ticket"}</h3>
-        <InputField label="Title *" value={form.title} onChange={function(e){setForm(Object.assign({},form,{title:e.target.value}))}} placeholder="Ticket title" autoFocus={true} />
+        <InputField label="Title *" value={form.title} onChange={function(e){setForm(Object.assign({},form,{title:e.target.value}))}} placeholder="Ticket title" autoFocus={true} onPaste={handleTitlePaste} />
         <InputField label="ADO Board Link" value={form.adoLink} onChange={function(e){setForm(Object.assign({},form,{adoLink:e.target.value}))}} placeholder="https://dev.azure.com/..." />
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
           <SelectField label="Type" options={TYPES} value={form.type} onChange={function(v){setForm(Object.assign({},form,{type:v}))}} />
