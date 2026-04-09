@@ -134,21 +134,37 @@ export default function App(){
     const pastedText = e.clipboardData.getData('text');
     const pastedHtml = e.clipboardData.getData('text/html');
     
+    console.log('=== PASTE DEBUG ===');
+    console.log('Plain text:', pastedText);
+    console.log('HTML:', pastedHtml);
+    
     let extractedLink = '';
     
     // First, try to extract link from HTML (for copied hyperlinks)
     if(pastedHtml){
-      const urlMatch = pastedHtml.match(/href=["']([^"']*dev\.azure\.com[^"']*)["']/i);
-      if(urlMatch){
-        extractedLink = urlMatch[1];
+      // Try multiple patterns for Azure DevOps links
+      const patterns = [
+        /href=["']([^"']*dev\.azure\.com[^"']*)["']/i,
+        /href=["']([^"']*visualstudio\.com[^"']*)["']/i,
+        /href=["']([^"']*_workitems[^"']*)["']/i
+      ];
+      
+      for(const pattern of patterns){
+        const urlMatch = pastedHtml.match(pattern);
+        if(urlMatch){
+          extractedLink = urlMatch[1];
+          console.log('Found link in HTML:', extractedLink);
+          break;
+        }
       }
     }
     
     // Fallback: Look for plain text URLs
     if(!extractedLink){
-      const adoLinkMatch = pastedText.match(/(https?:\/\/dev\.azure\.com\/[^\s]+)/i);
+      const adoLinkMatch = pastedText.match(/(https?:\/\/(dev\.azure\.com|[^\.]+\.visualstudio\.com)\/[^\s]+)/i);
       if(adoLinkMatch){
         extractedLink = adoLinkMatch[1];
+        console.log('Found link in plain text:', extractedLink);
       }
     }
     
@@ -156,9 +172,12 @@ export default function App(){
     if(extractedLink){
       e.preventDefault();
       // Clean up the title by removing any URL that might be in plain text
-      const cleanTitle = pastedText.replace(/(https?:\/\/dev\.azure\.com\/[^\s]+)/gi, '').replace(/\s+/g, ' ').trim();
+      const cleanTitle = pastedText.replace(/(https?:\/\/(dev\.azure\.com|[^\.]+\.visualstudio\.com)\/[^\s]+)/gi, '').replace(/\s+/g, ' ').trim();
       setForm(Object.assign({}, form, {title: cleanTitle, adoLink: extractedLink}));
       setFeedbackMsg({text: "ADO link auto-extracted!", type: "success"});
+      console.log('Success! Title:', cleanTitle, 'Link:', extractedLink);
+    } else {
+      console.log('No ADO link found in paste data');
     }
   }
   async function handleSaveToFile(){
