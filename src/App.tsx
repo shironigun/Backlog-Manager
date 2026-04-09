@@ -132,13 +132,31 @@ export default function App(){
   }
   function handleTitlePaste(e: React.ClipboardEvent<HTMLInputElement>){
     const pastedText = e.clipboardData.getData('text');
-    // Look for Azure DevOps links
-    const adoLinkMatch = pastedText.match(/(https?:\/\/dev\.azure\.com\/[^\s]+)/i);
-    if(adoLinkMatch){
+    const pastedHtml = e.clipboardData.getData('text/html');
+    
+    let extractedLink = '';
+    
+    // First, try to extract link from HTML (for copied hyperlinks)
+    if(pastedHtml){
+      const urlMatch = pastedHtml.match(/href=["']([^"']*dev\.azure\.com[^"']*)["']/i);
+      if(urlMatch){
+        extractedLink = urlMatch[1];
+      }
+    }
+    
+    // Fallback: Look for plain text URLs
+    if(!extractedLink){
+      const adoLinkMatch = pastedText.match(/(https?:\/\/dev\.azure\.com\/[^\s]+)/i);
+      if(adoLinkMatch){
+        extractedLink = adoLinkMatch[1];
+      }
+    }
+    
+    // If we found a link, extract it
+    if(extractedLink){
       e.preventDefault();
-      const extractedLink = adoLinkMatch[1];
-      // Remove the link from the title and clean up extra whitespace
-      const cleanTitle = pastedText.replace(extractedLink, '').replace(/\s+/g, ' ').trim();
+      // Clean up the title by removing any URL that might be in plain text
+      const cleanTitle = pastedText.replace(/(https?:\/\/dev\.azure\.com\/[^\s]+)/gi, '').replace(/\s+/g, ' ').trim();
       setForm(Object.assign({}, form, {title: cleanTitle, adoLink: extractedLink}));
       setFeedbackMsg({text: "ADO link auto-extracted!", type: "success"});
     }
