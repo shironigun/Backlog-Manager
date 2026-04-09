@@ -3,11 +3,20 @@ export type Status = "New" | "Active" | "Blocked" | "Discussion Required" | "Res
 export type TicketType = "Story" | "Feature" | "Task" | "Epic" | "Defect";
 export type Priority = "High" | "Medium" | "Low";
 export type Role = "Developer" | "QA" | "Designer";
+export type Phase = "Design" | "Development" | "QA" | "Released";
 
 export interface Developer {
   id: string;
   name: string;
   role: Role;
+}
+
+export interface AssignmentHistory {
+  role: Role;
+  devId: string;
+  devName: string;
+  assignedAt: string;
+  completedAt: string | null;
 }
 
 export interface Ticket {
@@ -23,6 +32,16 @@ export interface Ticket {
   dueDate: string;
   sprint: string;
   createdAt: string;
+  // Timeline tracking
+  currentPhase?: Phase;
+  assignmentHistory?: AssignmentHistory[];
+  designStartDate?: string;
+  designEndDate?: string;
+  devStartDate?: string;
+  devResolvedDate?: string;
+  testStartDate?: string;
+  testEndDate?: string;
+  releaseDate?: string;
 }
 
 export interface TicketForm {
@@ -63,4 +82,15 @@ export const TYPE_ICONS: Record<TicketType, string> = {
   "Task":"✅",
   "Epic":"🎯",
   "Defect":"🐛"
+};
+export const PHASE_COLORS: Record<Phase, string> = {
+  "Design":"#ec4899",
+  "Development":"#6366f1",
+  "QA":"#06b6d4",
+  "Released":"#10b981"
+};
+export const ROLE_ICONS: Record<Role, string> = {
+  "Designer":"🎨",
+  "Developer":"💻",
+  "QA":"🧪"
 };

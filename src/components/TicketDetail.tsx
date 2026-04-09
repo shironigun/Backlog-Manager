@@ -1,12 +1,16 @@
-import { Ticket, STATUS_COLORS, PRIO_COLORS, TYPE_ICONS } from "./types";
+import { Ticket, STATUS_COLORS, PRIO_COLORS, TYPE_ICONS, Developer } from "./types";
 import { Modal } from "./Modal";
 import { Badge } from "./Badge";
+import { Timeline } from "./Timeline";
 
 interface TicketDetailProps {
   ticket: Ticket;
   onClose: () => void;
   onEdit: (ticket: Ticket) => void;
   onDelete: (id: string) => void;
+  developers?: Developer[];
+  onAssign?: (ticketId: string, developerId: string) => void;
+  onCompleteAndReassign?: (ticketId: string, nextDeveloperId: string) => void;
 }
 
 export function TicketDetail(props: TicketDetailProps) {
@@ -48,6 +52,44 @@ export function TicketDetail(props: TicketDetailProps) {
         <a href={t.adoLink} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#8b5cf6", textDecoration: "none", background: "#8b5cf622", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}>
           {"Open in ADO Board ↗"}
         </a>
+      )}
+
+      {/* Timeline */}
+      <Timeline ticket={t} />
+
+      {/* Assignment Actions */}
+      {props.developers && props.onAssign && !t.devId && (
+        <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid #2a2a3e" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>
+            Assign To
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {props.developers.map(function(dev) {
+              return (
+                <button key={dev.id} onClick={function() { props.onAssign!(t.id, dev.id); props.onClose(); }} style={{ background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {dev.role === "Designer" ? "🎨" : dev.role === "Developer" ? "💻" : "🧪"} {dev.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {props.developers && props.onCompleteAndReassign && t.devId && (
+        <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid #2a2a3e" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 8 }}>
+            Complete & Reassign To
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {props.developers.filter(function(dev) { return dev.id !== t.devId; }).map(function(dev) {
+              return (
+                <button key={dev.id} onClick={function() { props.onCompleteAndReassign!(t.id, dev.id); props.onClose(); }} style={{ background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {dev.role === "Designer" ? "🎨" : dev.role === "Developer" ? "💻" : "🧪"} {dev.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20, paddingTop: 14, borderTop: "1px solid #2a2a3e" }}>

@@ -1,6 +1,7 @@
 import { DragEvent } from "react";
 import { Ticket, PRIO_COLORS, TYPE_ICONS } from "./types";
 import { Badge } from "./Badge";
+import { getTimelineSummary } from "./utils";
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -9,6 +10,7 @@ interface TicketCardProps {
 
 export function TicketCard(props: TicketCardProps) {
   const t = props.ticket;
+  const timeline = getTimelineSummary(t);
   
   function onDragStart(e: DragEvent<HTMLDivElement>) {
     e.dataTransfer.setData("ticketId", t.id);
@@ -47,6 +49,14 @@ export function TicketCard(props: TicketCardProps) {
         <span style={{ flex: 1 }} />
         <Badge color={PRIO_COLORS[t.priority]} small={true}>{t.priority}</Badge>
       </div>
+      {timeline.total > 0 && (
+        <div style={{ marginTop: 8, fontSize: 10, color: "#64748b", display: "flex", gap: 8 }}>
+          {timeline.designer && timeline.designer > 0 && <span>🎨 {timeline.designer}d</span>}
+          {timeline.developer && timeline.developer > 0 && <span>💻 {timeline.developer}d</span>}
+          {timeline.qa && timeline.qa > 0 && <span>🧪 {timeline.qa}d</span>}
+          {timeline.current && <span style={{ color: "#8b5cf6", fontWeight: 600 }}>• {timeline.current.days}d active</span>}
+        </div>
+      )}
     </div>
   );
 }

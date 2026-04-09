@@ -121,3 +121,110 @@ export async function loadFromFile(): Promise<{ success: boolean; data?: Backlog
     return { success: false, error: error.message || 'Failed to load file' };
   }
 }
+
+// Timeline calculation utilities
+import { Ticket, Role } from './types';
+
+export interface TimelineSummary {
+  designer?: number;
+  developer?: number;
+  qa?: number;
+  total: number;
+  current?: {
+    role: Role;
+    days: number;
+  };
+}
+
+// Calculate days between two dates
+export function calculateDays(startDate: string | null | undefined, endDate: string | null | undefined): number {
+  if (!startDate) return 0;
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date();
+  const diffMs = end.getTime() - start.getTime();
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+// Get timeline summary showing days spent in each phase
+export function getTimelineSummary(ticket: Ticket): TimelineSummary {
+  const summary: TimelineSummary = { total: 0 };
+  
+  // Calculate from assignment history if available
+  if (ticket.assignmentHistory && ticket.assignmentHistory.length > 0) {
+    const roleMap: Record<string, number> = {};
+    
+    ticket.assignmentHistory.forEach(assignment => {
+      const days = calculateDays(assignment.assignedAt, assignment.completedAt);
+      const roleKey = assignment.role.toLowerCase() as 'designer' | 'developer' | 'qa';
+      roleMap[roleKey] = (roleMap[roleKey] || 0) + days;
+    });
+    
+    summary.designer = roleMap.designer;
+    summary.developer = roleMap.developer;
+    summary.qa = roleMap.qa;
+  } else {
+    // Fallback: calculate from phase dates
+    if (ticket.designStartDate) {
+      summary.designer = calculateDays(ticket.designStartDate, ticket.designEndDate);
+    }
+    if (ticket.devStartDate) {
+      summary.developer = calculateDays(ticket.devStartDate, ticket.devResolvedDate);
+    }
+    if (ticket.testStartDate) {
+      summary.qa = calculateDays(ticket.testStartDate, ticket.testEndDate);
+    }
+  }
+  
+  summary.total = (summary.designer || 0) + (summary.developer || 0) + (summary.qa || 0);
+  
+  // If ticket is currently assigned, add current phase info
+  if (ticket.devId && ticket.currentPhase && ticket.currentPhase !== 'Released') {
+    const roleMap: Record<string, Role> = {
+      'Design': 'Designer',
+      'Development': 'Developer',
+      'QA': 'QA'
+    };
+    
+    const currentRole = roleMap[ticket.currentPhase];
+    if (currentRole) {
+      // Find the current assignment start date
+      let currentStart: string | undefined;
+      if (ticket.assignmentHistory && ticket.assignmentHistory.length > 0) {
+        const currentAssignment = ticket.assignmentHistory.find(a => !a.completedAt);
+        currentStart = currentAssignment?.assignedAt;
+      } else {
+        // Fallback to phase dates
+        if (ticket.currentPhase === 'Design') currentStart = ticket.designStartDate;
+        if (ticket.currentPhase === 'Development') currentStart = ticket.devStartDate;
+        if (ticket.currentPhase === 'QA') currentStart = ticket.testStartDate;
+      }
+      
+      summary.current = {
+        role: currentRole,
+        days: calculateDays(currentStart, null)
+      };
+    }
+  }
+  
+  return summary;
+}
+
+// Get current phase duration (for active tickets)
+export function getCurrentPhaseDuration(ticket: Ticket): number {
+  if (!ticket.devId || !ticket.currentPhase) return 0;
+  
+  const summary = getTimelineSummary(ticket);
+  return summary.current?.days || 0;
+}
+
+// Format timeline summary as readable text
+export function formatTimelineSummary(ticket: Ticket): string {
+  const summary = getTimelineSummary(ticket);
+  const parts: string[] = [];
+  
+  if (summary.designer) parts.push(`🎨 ${summary.designer}d`);
+  if (summary.developer) parts.push(`💻 ${summary.developer}d`);
+  if (summary.qa) parts.push(`🧪 ${summary.qa}d`);
+  
+  return parts.join(' | ') || 'No timeline data';
+}

@@ -54,6 +54,7 @@ export default function App(){
   const [devs, setDevs] = useState<Developer[]>(() => loadFromStorage(STORAGE_KEYS.DEVELOPERS, []));
   const [tickets, setTickets] = useState<Ticket[]>(() => loadFromStorage(STORAGE_KEYS.TICKETS, []));
   const [selectedDev, setSelectedDev] = useState<string | null>(null);
+  const [showGeneralBacklog, setShowGeneralBacklog] = useState(false);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [showAddDev, setShowAddDev] = useState(false);
   const [newDevName, setNewDevName] = useState("");
@@ -122,7 +123,13 @@ export default function App(){
         return t;
       })});
     } else {
-      const newT: Ticket = Object.assign({id:uid(),devId:selectedDev,createdAt:new Date().toISOString()},form) as Ticket;
+      // New tickets start in General Backlog (unassigned)
+      const newT: Ticket = Object.assign({
+        id:uid(),
+        devId:null,
+        createdAt:new Date().toISOString(),
+        assignmentHistory: []
+      },form) as Ticket;
       setTickets(function(p){return p.concat([newT])});
     }
     setShowTicketModal(false);
@@ -180,6 +187,106 @@ export default function App(){
       console.log('No ADO link found in paste data');
     }
   }
+  function assignTicket(ticketId: string, developerId: string){
+    const developer = devs.find(function(d){return d.id===developerId});
+    if(!developer) return;
+    
+    setTickets(function(prev){return prev.map(function(t){
+      if(t.id!==ticketId) return t;
+      
+      const now = new Date().toISOString();
+      const history = t.assignmentHistory || [];
+      
+      // Determine phase based on developer role
+      let phase: "Design" | "Development" | "QA" | "Released" | undefined;
+      let dateField: Partial<Ticket> = {};
+      
+      if(developer.role==="Designer"){
+        phase = "Design";
+        if(!t.designStartDate) dateField.designStartDate = now;
+      } else if(developer.role==="Developer"){
+        phase = "Development";
+        if(!t.devStartDate) dateField.devStartDate = now;
+      } else if(developer.role==="QA"){
+        phase = "QA";
+        if(!t.testStartDate) dateField.testStartDate = now;
+      }
+      
+      // Add to assignment history
+      history.push({
+        role: developer.role,
+        devId: developer.id,
+        devName: developer.name,
+        assignedAt: now,
+        completedAt: null
+      });
+      
+      return Object.assign({},t,{
+        devId: developer.id,
+        currentPhase: phase,
+        assignmentHistory: history
+      },dateField);
+    })});
+    
+    setFeedbackMsg({text: `Assigned to ${developer.name}`, type: "success"});
+  }
+  function completeAndReassign(ticketId: string, nextDeveloperId: string){
+    const nextDev = devs.find(function(d){return d.id===nextDeveloperId});
+    if(!nextDev) return;
+    
+    setTickets(function(prev){return prev.map(function(t){
+      if(t.id!==ticketId) return t;
+      
+      const now = new Date().toISOString();
+      const history = [...(t.assignmentHistory || [])];
+      
+      // Complete current assignment
+      if(history.length>0){
+        const lastIndex = history.length - 1;
+        if(!history[lastIndex].completedAt){
+          history[lastIndex] = Object.assign({},history[lastIndex],{completedAt: now});
+        }
+      }
+      
+      // Set phase end date
+      let endDateField: Partial<Ticket> = {};
+      if(t.currentPhase==="Design") endDateField.designEndDate = now;
+      else if(t.currentPhase==="Development") endDateField.devResolvedDate = now;
+      else if(t.currentPhase==="QA") endDateField.testEndDate = now;
+      
+      // Determine next phase
+      let nextPhase: "Design" | "Development" | "QA" | "Released" | undefined;
+      let startDateField: Partial<Ticket> = {};
+      
+      if(nextDev.role==="Designer"){
+        nextPhase = "Design";
+        if(!t.designStartDate) startDateField.designStartDate = now;
+      } else if(nextDev.role==="Developer"){
+        nextPhase = "Development";
+        if(!t.devStartDate) startDateField.devStartDate = now;
+      } else if(nextDev.role==="QA"){
+        nextPhase = "QA";
+        if(!t.testStartDate) startDateField.testStartDate = now;
+      }
+      
+      // Add new assignment
+      history.push({
+        role: nextDev.role,
+        devId: nextDev.id,
+        devName: nextDev.name,
+        assignedAt: now,
+        completedAt: null
+      });
+      
+      return Object.assign({},t,{
+        devId: nextDev.id,
+        currentPhase: nextPhase,
+        assignmentHistory: history
+      },endDateField,startDateField);
+    })});
+    
+    setFeedbackMsg({text: `Reassigned to ${nextDev.name}`, type: "success"});
+  }
   async function handleSaveToFile(){
     const result = await saveToFile(devs, tickets);
     if(result.success){
@@ -204,16 +311,44 @@ export default function App(){
     setDragOver(null);
     const ticketId = e.dataTransfer.getData("ticketId");
     if(ticketId) setTickets(function(p){return p.map(function(t){
-      if(t.id===ticketId) return Object.assign({},t,{status:status});
-      return t;
+      if(t.id!==ticketId) return t;
+      
+      const now = new Date().toISOString();
+      const updates: Partial<Ticket> = {status: status};
+      
+      // Auto-capture dates based on status transitions
+      if(t.devId && t.currentPhase){
+        // When moving to Active, set start date if not already set
+        if(status==="Active"){
+          if(t.currentPhase==="Design" && !t.designStartDate) updates.designStartDate = now;
+          if(t.currentPhase==="Development" && !t.devStartDate) updates.devStartDate = now;
+          if(t.currentPhase==="QA" && !t.testStartDate) updates.testStartDate = now;
+        }
+        // When marking as Resolved from Development phase, set dev end date
+        if(status==="Resolved" && t.currentPhase==="Development" && !t.devResolvedDate){
+          updates.devResolvedDate = now;
+        }
+        // When marking as Tested from QA phase, set test end date  
+        if(status==="Tested" && t.currentPhase==="QA" && !t.testEndDate){
+          updates.testEndDate = now;
+        }
+      }
+      // When moving to Waiting for Release or Closed, mark as released
+      if((status==="Waiting for Release" || status==="Closed") && !t.releaseDate){
+        updates.releaseDate = now;
+        updates.currentPhase = "Released";
+      }
+      
+      return Object.assign({},t,updates);
     })});
   }
 
   const dev = devs.find(function(d){return d.id===selectedDev});
   const devTickets = tickets.filter(function(t){return t.devId===selectedDev});
+  const unassignedTickets = tickets.filter(function(t){return t.devId===null});
 
   /* ════ DASHBOARD ════ */
-  if(!selectedDev){
+  if(!selectedDev && !showGeneralBacklog){
     return (
       <div style={{minHeight:"100vh",background:"#0b0b1a",color:"#e2e8f0",fontFamily:"system-ui",padding:20}}>
         <div style={{maxWidth:1200,margin:"0 auto"}}>
@@ -241,6 +376,29 @@ export default function App(){
               <div style={{fontSize:13,marginTop:4}}>Add a team member (Developer, QA, or Designer) to start tracking their backlog</div>
             </div>
           )}
+
+          {/* General Backlog Card */}
+          <div style={{marginBottom:28}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <span style={{fontSize:18}}>📋</span>
+              <h2 style={{margin:0,fontSize:18,fontWeight:700,color:"#e2e8f0"}}>General Backlog</h2>
+              <span style={{fontSize:12,color:"#64748b"}}>{"("+unassignedTickets.length+")"}</span>
+            </div>
+            <div onClick={function(){setShowGeneralBacklog(true)}} style={{background:"#151525",borderRadius:14,padding:20,border:"1px solid #2a2a3e",cursor:"pointer",transition:"all .2s",maxWidth:400}} onMouseEnter={function(e){e.currentTarget.style.borderColor="#8b5cf6";e.currentTarget.style.transform="translateY(-2px)"}} onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e";e.currentTarget.style.transform="none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#8b5cf6,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:16,color:"#fff"}}>📋</div>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15}}>Unassigned Tickets</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{unassignedTickets.length+" tickets waiting for assignment"}</div>
+                </div>
+              </div>
+              {unassignedTickets.length>0 && (
+                <div style={{fontSize:12,color:"#94a3b8",marginTop:8}}>
+                  Click to view and assign tickets to team members
+                </div>
+              )}
+            </div>
+          </div>
 
           {ROLES.map(function(role){
             const members = devs.filter(function(d){return (d.role||"Developer")===role});
@@ -306,6 +464,136 @@ export default function App(){
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button onClick={function(){setShowAddDev(false)}} style={{background:"#1e293b",color:"#94a3b8",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer"}}>Cancel</button>
             <button onClick={addDev} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontWeight:600,cursor:"pointer"}}>Add</button>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  /* ════ GENERAL BACKLOG ════ */
+  if(showGeneralBacklog){
+    return (
+      <div style={{minHeight:"100vh",background:"#0b0b1a",color:"#e2e8f0",fontFamily:"system-ui",padding:20}}>
+        <div style={{maxWidth:1400,margin:"0 auto"}}>
+          {feedbackMsg && (
+            <div style={{position:"fixed",top:20,right:20,zIndex:1000,background:feedbackMsg.type==="success"?"#10b981":"#ef4444",color:"#fff",padding:"12px 20px",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.3)",fontSize:14,fontWeight:600,animation:"slideIn 0.3s ease-out"}}>
+              {feedbackMsg.text}
+            </div>
+          )}
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <button onClick={function(){setShowGeneralBacklog(false)}} style={{background:"#1e293b",color:"#94a3b8",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13}}>{"← Back"}</button>
+              <div style={{width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#8b5cf6,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff"}}>📋</div>
+              <h2 style={{margin:0,fontSize:20,fontWeight:700}}>General Backlog</h2>
+              <span style={{fontSize:12,color:"#64748b"}}>{unassignedTickets.length+" unassigned tickets"}</span>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{background:"#151525",borderRadius:8,display:"flex",overflow:"hidden",border:"1px solid #2a2a3e"}}>
+                <button onClick={function(){setViewMode("kanban")}} style={{background:viewMode==="kanban"?"#6366f1":"transparent",color:viewMode==="kanban"?"#fff":"#94a3b8",border:"none",padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>{"📋 Kanban"}</button>
+                <button onClick={function(){setViewMode("list")}} style={{background:viewMode==="list"?"#6366f1":"transparent",color:viewMode==="list"?"#fff":"#94a3b8",border:"none",padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>{"📊 List"}</button>
+              </div>
+              <button onClick={openNewTicket} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:"8px 18px",fontWeight:600,cursor:"pointer",fontSize:13}}>+ New Ticket</button>
+            </div>
+          </div>
+
+          {/* Summary badges */}
+          <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+            {STATUSES.map(function(s){
+              const c = unassignedTickets.filter(function(t){return t.status===s}).length;
+              return <Badge key={s} color={STATUS_COLORS[s]}>{s+": "+c}</Badge>;
+            })}
+          </div>
+
+          {/* ── KANBAN ── */}
+          {viewMode==="kanban" && (
+            <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:20}}>
+              {STATUSES.map(function(status){
+                const col = sortByPriority(unassignedTickets.filter(function(t){return t.status===status}));
+                const isOver = dragOver===status;
+                return (
+                  <div key={status} onDragOver={function(e){e.preventDefault();setDragOver(status)}} onDragLeave={function(){setDragOver(null)}} onDrop={function(e){handleDrop(status,e)}} style={{minWidth:200,maxWidth:240,flex:"1 0 200px",background:isOver?"#1a1a35":"#111122",borderRadius:12,padding:10,border:"1px solid "+(isOver?"#6366f1":"#1e1e2e"),transition:"all .15s"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,paddingBottom:8,borderBottom:"2px solid "+STATUS_COLORS[status]}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[status]}} />
+                      <span style={{fontSize:11,fontWeight:700,flex:1}}>{status}</span>
+                      <span style={{fontSize:11,color:"#64748b",background:"#1e1e2e",borderRadius:10,padding:"1px 7px"}}>{col.length}</span>
+                    </div>
+                    {col.map(function(t){
+                      return <TicketCard key={t.id} ticket={t} onClick={function(tk){setViewingTicket(tk)}} />;
+                    })}
+                    {col.length===0 && <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:"#334155"}}>Drop here</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── LIST ── */}
+          {viewMode==="list" && (
+            <div>
+              {STATUSES.map(function(status){
+                const col = sortByPriority(unassignedTickets.filter(function(t){return t.status===status}));
+                if(col.length===0) return null;
+                return (
+                  <div key={status} style={{marginBottom:20}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <div style={{width:10,height:10,borderRadius:"50%",background:STATUS_COLORS[status]}} />
+                      <h3 style={{margin:0,fontSize:15,fontWeight:700}}>{status}</h3>
+                      <span style={{fontSize:12,color:"#64748b"}}>{"("+col.length+")"}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {col.map(function(t){
+                        const title = t.title.length>60 ? t.title.slice(0,60)+"…" : t.title;
+                        return (
+                          <div key={t.id} onClick={function(){setViewingTicket(t)}} style={{background:"#151525",borderRadius:10,padding:"10px 14px",border:"1px solid #2a2a3e",display:"flex",alignItems:"center",gap:10,cursor:"pointer",transition:"all .15s"}} onMouseEnter={function(e){e.currentTarget.style.borderColor="#6366f155"}} onMouseLeave={function(e){e.currentTarget.style.borderColor="#2a2a3e"}}>
+                            <span style={{fontSize:14}}>{TYPE_ICONS[t.type]}</span>
+                            <span style={{fontWeight:600,fontSize:14,flex:1,minWidth:120}}>{title}</span>
+                            <Badge color="#475569" small={true}>{t.type}</Badge>
+                            <Badge color={PRIO_COLORS[t.priority]} small={true}>{t.priority}</Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {unassignedTickets.length===0 && <div style={{textAlign:"center",padding:40,color:"#475569",fontSize:14}}>{"No unassigned tickets — all tickets are assigned"}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* ── Viewing ticket detail ── */}
+        {viewingTicket && (
+          <TicketDetail
+            ticket={viewingTicket}
+            onClose={function(){setViewingTicket(null)}}
+            onEdit={openEditTicket}
+            onDelete={deleteTicket}
+            developers={devs}
+            onAssign={assignTicket}
+            onCompleteAndReassign={completeAndReassign}
+          />
+        )}
+
+        {/* ── Create / Edit form ── */}
+        <Modal open={showTicketModal} onClose={function(){setShowTicketModal(false)}}>
+          <h3 style={{margin:"0 0 18px",color:"#e2e8f0"}}>{editingTicket?"Edit Ticket":"New Ticket"}</h3>
+          <InputField label="Title *" value={form.title} onChange={function(e){setForm(Object.assign({},form,{title:e.target.value}))}} placeholder="Ticket title" autoFocus={true} onPaste={handleTitlePaste} />
+          <InputField label="ADO Board Link" value={form.adoLink} onChange={function(e){setForm(Object.assign({},form,{adoLink:e.target.value}))}} placeholder="https://dev.azure.com/..." />
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            <SelectField label="Type" options={TYPES} value={form.type} onChange={function(v){setForm(Object.assign({},form,{type:v}))}} />
+            <SelectField label="Status" options={STATUSES} value={form.status} onChange={function(v){setForm(Object.assign({},form,{status:v}))}} />
+            <SelectField label="Priority" options={PRIORITIES} value={form.priority} onChange={function(v){setForm(Object.assign({},form,{priority:v}))}} />
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <InputField label="Due Date" type="date" value={form.dueDate} onChange={function(e){setForm(Object.assign({},form,{dueDate:e.target.value}))}} />
+            <InputField label="Sprint" value={form.sprint} onChange={function(e){setForm(Object.assign({},form,{sprint:e.target.value}))}} placeholder="e.g. 24" />
+          </div>
+          <TextAreaField label="Description" value={form.description} onChange={function(e){setForm(Object.assign({},form,{description:e.target.value}))}} placeholder="Brief description..." />
+          <TextAreaField label="Acceptance Criteria" value={form.acceptanceCriteria} onChange={function(e){setForm(Object.assign({},form,{acceptanceCriteria:e.target.value}))}} placeholder="Given... When... Then..." />
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+            <button onClick={function(){setShowTicketModal(false)}} style={{background:"#1e293b",color:"#94a3b8",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer"}}>Cancel</button>
+            <button onClick={saveTicket} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontWeight:600,cursor:"pointer"}}>{editingTicket?"Save Changes":"Create Ticket"}</button>
           </div>
         </Modal>
       </div>
@@ -405,6 +693,9 @@ export default function App(){
           onClose={function(){setViewingTicket(null)}}
           onEdit={openEditTicket}
           onDelete={deleteTicket}
+          developers={devs}
+          onAssign={assignTicket}
+          onCompleteAndReassign={completeAndReassign}
         />
       )}
 
